@@ -1,7 +1,7 @@
 import requests
 
-BIN_ID = ""
-API_KEY = ""
+BIN_ID = "https://api.jsonbin.io/v3/b/6af52fbdac6210605a813fcd"
+API_KEY = "$2a$10$rVFbLYYZTDCzwxvNdE8N7O1Ua0gBD6NOO.TW2R0wXnbtfjwhA1WaO"
 
 URL = f"https://api.jsonbin.io/v3/b/{BIN_ID}/latest"
 
