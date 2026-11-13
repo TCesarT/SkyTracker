@@ -1,131 +1,146 @@
 {
-  "usuarios": {
-    "clientes": [
-      {
-        "id": "CLI-001",
-        "nombre": "María González",
-        "contrasena": "maria123",
-        "estado": "Miranda",
-        "municipio": "Chacao",
-        "direccion": "Av. Francisco de Miranda, Edif. Centro Lido, Piso 3, Apto 3B"
-      },
-      {
-        "id": "CLI-002",
-        "nombre": "Carlos Pérez",
-        "contrasena": "carlos456",
-        "estado": "Distrito Capital",
-        "municipio": "Libertador",
-        "direccion": "Calle Sucre, Urb. La Pastora, Casa 12"
-      }
+    "usuarios": {
+        "clientes": [
+            {
+                "id": "CLI-001",
+                "nombre": "María González",
+                "contrasena": "maria123",
+                "estado": "Miranda",
+                "municipio": "Chacao",
+                "direccion": "Av. Francisco de Miranda, Edif. Centro Lido, Piso 3, Apto 3B"
+            },
+            {
+                "id": "CLI-002",
+                "nombre": "Carlos Pérez",
+                "contrasena": "carlos456",
+                "estado": "Distrito Capital",
+                "municipio": "Libertador",
+                "direccion": "Calle Sucre, Urb. La Pastora, Casa 12"
+            }
+        ],
+        "operadores": [
+            {
+                "id": "OPE-001",
+                "nombre": "Andrés Morales",
+                "contrasena": "op_andres01"
+            },
+            {
+                "id": "OPE-002",
+                "nombre": "Sofía Torres",
+                "contrasena": "op_sofia02"
+            }
+        ]
+    },
+    "drones": [
+        {
+            "id": "DRN-001",
+            "modelo": "SkyTrack Alpha",
+            "estado": "Disponible",
+            "envio_activo_id": null
+        },
+        {
+            "id": "DRN-002",
+            "modelo": "SkyTrack Beta",
+            "estado": "Disponible",
+            "envio_activo_id": null
+        },
+        {
+            "id": "DRN-003",
+            "modelo": "SkyTrack Gamma",
+            "estado": "Disponible",
+            "envio_activo_id": null
+        }
     ],
-    "operadores": [
-      {
-        "id": "OPE-001",
-        "nombre": "Andrés Morales",
-        "contrasena": "op_andres01"
-      },
-      {
-        "id": "OPE-002",
-        "nombre": "Sofía Torres",
-        "contrasena": "op_sofia02"
-      }
-    ]
-  },
-  "drones": [
-    {
-      "id": "DRN-001",
-      "modelo": "SkyTrack Alpha",
-      "estado": "Disponible",
-      "envio_activo_id": null
+    "envios": [],
+    "historial_eta": {
+        "municipios": {},
+        "estados": {}
     },
-    {
-      "id": "DRN-002",
-      "modelo": "SkyTrack Beta",
-      "estado": "Disponible",
-      "envio_activo_id": null
+    "ubicaciones_validas": {
+        "Distrito Capital": [
+            "Libertador"
+        ],
+        "Miranda": [
+            "Acevedo",
+            "Andrés Bello",
+            "Baruta",
+            "Brión",
+            "Buroz",
+            "Carrizal",
+            "Chacao",
+            "Cristóbal Rojas",
+            "El Hatillo",
+            "Guaicaipuro",
+            "Independencia",
+            "Lander",
+            "Los Salias",
+            "Páez",
+            "Paz Castillo",
+            "Pedro Gual",
+            "Urdaneta",
+            "Zamora"
+        ],
+        "Vargas": [
+            "Carayaca",
+            "Carlos Soublette",
+            "La Guaira",
+            "Maiquetía",
+            "Naiguatá",
+            "Raúl Leoni",
+            "Simón Bolívar",
+            "Urimare",
+            "Vargas"
+        ]
     },
-    {
-      "id": "DRN-003",
-      "modelo": "SkyTrack Gamma",
-      "estado": "Disponible",
-      "envio_activo_id": null
+    "config": {
+        "token_operador": "SKYTRACK2026",
+        "eta_defecto_minutos": 45,
+        "umbral_extravío_minutos": 180
+    },
+    "plantillas": {
+        "_descripcion": "Sección de referencia. Muestra la estructura exacta de cada objeto. El código NUNCA debe leer ni escribir aquí.",
+        "cliente": {
+            "id": "CLI-000",
+            "nombre": "",
+            "contrasena": "",
+            "estado": "",
+            "municipio": "",
+            "direccion": ""
+        },
+        "operador": {
+            "id": "OPE-000",
+            "nombre": "",
+            "contrasena": ""
+        },
+        "dron": {
+            "id": "DRN-000",
+            "modelo": "",
+            "estado": "Disponible | En Camino | Entregado | Retornando | Extraviado",
+            "envio_activo_id": null
+        },
+        "envio": {
+            "id": "ENV-000",
+            "dron_id": "DRN-000",
+            "cliente_id": "CLI-000",
+            "estado_destino": "",
+            "municipio_destino": "",
+            "direccion_destino": "",
+            "estado_envio": "En Camino | Entregado | Retornando | Extraviado",
+            "timestamp_salida": null,
+            "timestamp_entrega": null,
+            "timestamp_retorno": null,
+            "eta_minutos": null,
+            "tiempo_real_vuelo_minutos": null,
+            "operador_id": "OPE-000"
+        },
+        "historial_municipio": {
+            "estado": "",
+            "tiempos_minutos": [],
+            "promedio_minutos": null
+        },
+        "historial_estado": {
+            "tiempos_minutos": [],
+            "promedio_minutos": null
+        }
     }
-  ],
-  "envios": [],
-  "historial_eta": {
-    "municipios": {},
-    "estados": {}
-  },
-  "ubicaciones_validas": {
-    "Distrito Capital": [
-      "Libertador"
-    ],
-    "Miranda": [
-      "Acevedo", "Andrés Bello", "Baruta", "Brión", "Buroz",
-      "Carrizal", "Chacao", "Cristóbal Rojas", "El Hatillo",
-      "Guaicaipuro", "Independencia", "Lander", "Los Salias",
-      "Páez", "Paz Castillo", "Pedro Gual", "Urdaneta", "Zamora"
-    ],
-    "Vargas": [
-      "Carayaca", "Carlos Soublette", "La Guaira", "Maiquetía",
-      "Naiguatá", "Raúl Leoni", "Simón Bolívar", "Urimare", "Vargas"
-    ],
-    "Carabobo": [
-      "Bejuma", "Briceño", "Carlos Arvelo", "Diego Ibarra",
-      "Guacara", "Guigue", "Juan José Mora", "Libertador",
-      "Los Guayos", "Miranda", "Montalbán", "Naguanagua",
-      "Puerto Cabello", "San Diego", "San Joaquín", "Valencia"
-    ]
-  },
-  "config": {
-    "token_operador": "SKYTRACK2026",
-    "eta_defecto_minutos": 45,
-    "umbral_extravío_minutos": 180
-  },
-  "plantillas": {
-    "_descripcion": "Sección de referencia. Muestra la estructura exacta de cada objeto. El código NUNCA debe leer ni escribir aquí.",
-    "cliente": {
-      "id": "CLI-000",
-      "nombre": "",
-      "contrasena": "",
-      "estado": "",
-      "municipio": "",
-      "direccion": ""
-    },
-    "operador": {
-      "id": "OPE-000",
-      "nombre": "",
-      "contrasena": ""
-    },
-    "dron": {
-      "id": "DRN-000",
-      "modelo": "",
-      "estado": "Disponible | En Camino | Entregado | Retornando | Extraviado",
-      "envio_activo_id": null
-    },
-    "envio": {
-      "id": "ENV-000",
-      "dron_id": "DRN-000",
-      "cliente_id": "CLI-000",
-      "estado_destino": "",
-      "municipio_destino": "",
-      "direccion_destino": "",
-      "estado_envio": "En Camino | Entregado | Retornando | Extraviado",
-      "timestamp_salida": null,
-      "timestamp_entrega": null,
-      "timestamp_retorno": null,
-      "eta_minutos": null,
-      "tiempo_real_vuelo_minutos": null,
-      "operador_id": "OPE-000"
-    },
-    "historial_municipio": {
-      "estado": "",
-      "tiempos_minutos": [],
-      "promedio_minutos": null
-    },
-    "historial_estado": {
-      "tiempos_minutos": [],
-      "promedio_minutos": null
-    }
-  }
 }
