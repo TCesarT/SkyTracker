@@ -3,7 +3,8 @@ import requests
 BIN_ID = "6af532f4ac6210605a81442a"
 API_KEY = "$2a$10$rVFbLYYZTDCzwxvNdE8N7O1Ua0gBD6NOO.TW2R0wXnbtfjwhA1WaO"
 
-URL = f"https://api.jsonbin.io/v3/b/{BIN_ID}/latest"
+URL_GET = f"https://api.jsonbin.io/v3/b/{BIN_ID}/latest"
+URL_PUT = f"https://api.jsonbin.io/v3/b/{BIN_ID}"
 
 headers = {
     "Content-Type": "application/json",
@@ -12,7 +13,7 @@ headers = {
 
 def cargarBD(): #Funcion para cargar los datos de la base de datos
     try:
-        respuesta = requests.get(URL, headers=headers)
+        respuesta = requests.get(URL_GET, headers=headers)
         #Si la peticion es exitosa retorna la data
         if respuesta.status_code == 200:
             data = respuesta.json()["record"]
@@ -28,7 +29,7 @@ def cargarBD(): #Funcion para cargar los datos de la base de datos
     
 def actualizarBD(datos_actualizados):
     try:
-        respuesta = requests.put(URL, json = datos_actualizados, headers = headers)
+        respuesta = requests.put(URL_PUT, json = datos_actualizados, headers = headers)
         if respuesta.status_code == 200:
             print("Base de datos actualizada correctamente")
             return True
