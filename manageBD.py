@@ -1,4 +1,11 @@
-import requests
+try:
+    import requests
+except ImportError:
+    import subprocess
+    import sys
+    print("Instalando dependencia necesaria (requests)...")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "requests"])
+    import requests
 
 BIN_ID = "6af532f4ac6210605a81442a"
 API_KEY = "$2a$10$rVFbLYYZTDCzwxvNdE8N7O1Ua0gBD6NOO.TW2R0wXnbtfjwhA1WaO"
