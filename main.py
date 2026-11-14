@@ -2,13 +2,13 @@ import time
 import datetime as dt
 import os
 
-# Importación directa de los módulos del equipo
+# Importación de los módulos del equipo (Responsables 1, 2 y 3)
 from manageBD import cargarBD, actualizarBD
 from geo_validador_parte3 import validar_ubicacion
 from modelos import Cliente, Operador, Dron, Envio
 
 # ==============================================================================
-# UTILIDADES DE CONSOLA
+# CÓDIGOS DE COLOR ANSI Y UTILIDADES DE CONSOLA
 # ==============================================================================
 class Color:
     VERDE = '\033[92m'
@@ -22,15 +22,18 @@ def limpiar_pantalla():
     os.system('cls' if os.name == 'nt' else 'clear')
 
 def pausar():
-    """Pausa la ejecución para que el usuario lea la respuesta antes de limpiar."""
+    """Pausa la ejecución para que el usuario lea antes de borrar la pantalla."""
     input(f"\n{Color.AMARILLO}Presiona ENTER para continuar...{Color.RESET}")
 
 # ==============================================================================
-# FUNCIONES DE VALIDACIÓN ROBUSTA
+# FUNCIONES DE VALIDACIÓN ROBUSTA (A prueba de errores de entrada)
 # ==============================================================================
 def pedir_entero(mensaje, min_val, max_val):
     while True:
         entrada = input(mensaje).strip()
+        if len(entrada) > 50:
+            print(f"{Color.ROJO}❌ Error: La entrada excede el límite de 50 caracteres.{Color.RESET}")
+            continue
         try:
             numero = int(entrada)
             if min_val <= numero <= max_val:
@@ -40,12 +43,40 @@ def pedir_entero(mensaje, min_val, max_val):
         except ValueError:
             print(f"{Color.ROJO}❌ Error: Entrada inválida. Usa solo números.{Color.RESET}")
 
-def pedir_cadena(mensaje):
+def pedir_cadena(mensaje, max_largo=50):
     while True:
         entrada = input(mensaje).strip()
-        if entrada:
+        if not entrada:
+            print(f"{Color.ROJO}❌ Error: Este campo no puede estar vacío.{Color.RESET}")
+        elif len(entrada) > max_largo:
+            print(f"{Color.ROJO}❌ Error: El texto es demasiado largo ({len(entrada)} caracteres). Máximo permitido: {max_largo}.{Color.RESET}")
+        else:
             return entrada
-        print(f"{Color.ROJO}❌ Error: Este campo no puede estar vacío.{Color.RESET}")
+
+# ==============================================================================
+# ALGORITMO ETA EN CASCADA (RESPONSABLE 5)
+# ==============================================================================
+def obtener_eta_cascada(data, estado, municipio):
+    """
+    Calcula el tiempo estimado de llegada (ETA) en 3 niveles jerárquicos:
+    1. Promedio del Municipio -> 2. Promedio del Estado -> 3. Valor por defecto (45 min).
+    Retorna una tupla: (minutos_eta, nivel_utilizado)
+    """
+    historial = data.get("historial_eta", {})
+    
+    # 1. Nivel Municipio
+    datos_muni = historial.get("municipios", {}).get(municipio)
+    if datos_muni and datos_muni.get("promedio_minutos") is not None:
+        return datos_muni["promedio_minutos"], f"Historial del Municipio ({municipio})"
+
+    # 2. Nivel Estado (Fallback)
+    datos_edo = historial.get("estados", {}).get(estado)
+    if datos_edo and datos_edo.get("promedio_minutos") is not None:
+        return datos_edo["promedio_minutos"], f"Promedio General del Estado ({estado})"
+
+    # 3. Valor por defecto de la configuración
+    eta_defecto = data.get("config", {}).get("eta_defecto_minutos", 45)
+    return eta_defecto, "Valor Estándar por Defecto (Zona Nueva)"
 
 # ==============================================================================
 # REGISTRO Y AUTENTICACIÓN DE USUARIOS (CLIENTES Y OPERADORES)
@@ -134,6 +165,37 @@ def registrar_usuario():
         if actualizarBD(data):
             print(f"{Color.VERDE}✅ ¡Operador '{nombre}' ({id_operador}) registrado con éxito!{Color.RESET}")
 
+def login_cliente():
+    limpiar_pantalla()
+    print(f"{Color.CYAN}\n--- 🔐 INICIO DE SESIÓN: CLIENTE ---{Color.RESET}")
+    data = cargarBD()
+    if not data:
+        return None
+
+    id_cli = pedir_cadena("ID de Cliente (ej. CLI-001): ").upper()
+    contra_cli = pedir_cadena("Contraseña: ")
+
+    for cli_data in data["usuarios"]["clientes"]:
+        if cli_data["id"].upper() == id_cli:
+            cliente_obj = Cliente(
+                cli_data["id"],
+                cli_data["nombre"],
+                cli_data["contrasena"],
+                cli_data["estado"],
+                cli_data["municipio"],
+                cli_data["direccion"]
+            )
+            if cliente_obj.autenticar(contra_cli):
+                print(f"{Color.VERDE}✅ ¡Bienvenido/a, {cliente_obj.nombre}!{Color.RESET}")
+                time.sleep(1)
+                return cliente_obj
+            else:
+                print(f"{Color.ROJO}❌ Contraseña incorrecta.{Color.RESET}")
+                return None
+
+    print(f"{Color.ROJO}❌ No se encontró ningún cliente con el ID '{id_cli}'.{Color.RESET}")
+    return None
+
 def login_operador():
     limpiar_pantalla()
     print(f"{Color.CYAN}\n--- 🔐 INICIO DE SESIÓN: OPERADOR ---{Color.RESET}")
@@ -165,7 +227,147 @@ def login_operador():
     return None
 
 # ==============================================================================
-# FUNCIONES DEL PANEL DE OPERADOR (PARTE 4)
+# FUNCIONES DEL PANEL DEL CLIENTE (RESPONSABLE 5)
+# ==============================================================================
+def ver_mis_envios(cliente_actual):
+    limpiar_pantalla()
+    data = cargarBD()
+    if not data:
+        return
+
+    print(f"{Color.CYAN}\n--- 📦 MIS ENVÍOS ({cliente_actual.nombre}) ---{Color.RESET}")
+    # Aislamiento de datos: solo filtramos los envíos asociados al ID de este cliente
+    mis_envios = [e for e in data.get("envios", []) if e["cliente_id"].upper() == cliente_actual.id.upper()]
+
+    if not mis_envios:
+        print(f"{Color.AMARILLO}Aún no tienes envíos registrados a tu nombre.{Color.RESET}")
+        return
+
+    print(f"{'ID ENVÍO':<10} | {'DRON':<9} | {'ESTADO':<13} | {'ETA ESTIMADO':<14} | {'TIEMPO TRANSCURRIDO / REAL'}")
+    print("-" * 80)
+
+    for e in mis_envios:
+        estado = e["estado_envio"]
+        eta_str = f"{e['eta_minutos']} min" if e.get("eta_minutos") else "N/A"
+
+        if estado == "Entregado":
+            color_est = Color.VERDE
+            tiempo_info = f"Entregado en {e.get('tiempo_real_vuelo_minutos', 0):.1f} min"
+        elif estado == "En Camino":
+            color_est = Color.AMARILLO
+            if e.get("timestamp_salida"):
+                transcurrido = (time.time() - e["timestamp_salida"]) / 60
+                restante = max(0, (e.get("eta_minutos") or 45) - transcurrido)
+                tiempo_info = f"Volando: {transcurrido:.1f} min (Faltan ~{restante:.1f} min)"
+            else:
+                tiempo_info = "En preparación"
+        else:
+            color_est = Color.ROJO
+            tiempo_info = estado
+
+        print(f"{e['id']:<10} | {e['dron_id']:<9} | {color_est}{estado:<13}{Color.RESET} | {eta_str:<14} | {tiempo_info}")
+    print("-" * 80)
+
+def consultar_mi_eta(cliente_actual):
+    limpiar_pantalla()
+    data = cargarBD()
+    if not data:
+        return
+
+    print(f"{Color.CYAN}\n--- ⏱️ ESTIMACIÓN INTELIGENTE DE TIEMPO (ALGORITMO ETA) ---{Color.RESET}")
+    eta_min, criterio = obtener_eta_cascada(data, cliente_actual.estado, cliente_actual.municipio)
+
+    print(f"📍 Tu ubicación registrada:")
+    print(f"   - Estado:    {cliente_actual.estado}")
+    print(f"   - Municipio: {cliente_actual.municipio}")
+    print(f"   - Dirección: {cliente_actual.direccion}")
+    print("-" * 55)
+    print(f"🔍 Criterio aplicado en cascada: {Color.AMARILLO}{criterio}{Color.RESET}")
+    print(f"🚁 Tiempo estimado de entrega (ETA): {Color.VERDE}{eta_min} minutos{Color.RESET}")
+
+def recibir_paquete(cliente_actual):
+    limpiar_pantalla()
+    data = cargarBD()
+    if not data:
+        return
+
+    print(f"{Color.CYAN}\n--- 📬 CONFIRMAR RECEPCIÓN DE PAQUETE ---{Color.RESET}")
+    # Filtramos solo los envíos de este cliente que estén "En Camino"
+    envios_en_camino = [
+        e for e in data.get("envios", [])
+        if e["cliente_id"].upper() == cliente_actual.id.upper() and e["estado_envio"] == "En Camino"
+    ]
+
+    if not envios_en_camino:
+        print(f"{Color.AMARILLO}No tienes ningún paquete 'En Camino' pendiente por recibir en este momento.{Color.RESET}")
+        return
+
+    print("Envíos actualmente en camino hacia tu ubicación:")
+    for idx, env in enumerate(envios_en_camino, start=1):
+        minutos_vuelo = (time.time() - env["timestamp_salida"]) / 60 if env.get("timestamp_salida") else 0
+        print(f"{idx}. Envío {env['id']} | Dron: {env['dron_id']} | Tiempo de vuelo actual: {minutos_vuelo:.1f} min")
+
+    seleccion = pedir_entero(f"\n{Color.AMARILLO}Selecciona el número del envío que acabas de recibir (1-{len(envios_en_camino)}): {Color.RESET}", 1, len(envios_en_camino))
+    envio_elegido = envios_en_camino[seleccion - 1]
+
+    # 1. Calcular el tiempo real de vuelo en minutos
+    ahora = time.time()
+    salida = envio_elegido.get("timestamp_salida") or ahora
+    tiempo_real_min = round(max(0.1, (ahora - salida) / 60), 2)
+
+    # 2. Actualizar los datos del envío en el JSON
+    envio_elegido["timestamp_entrega"] = ahora
+    envio_elegido["tiempo_real_vuelo_minutos"] = tiempo_real_min
+    envio_elegido["estado_envio"] = "Entregado"
+
+    # 3. Cambiar el estado del dron a "Retornando" (Retornando a base)
+    for dron in data.get("drones", []):
+        if dron["id"] == envio_elegido["dron_id"]:
+            dron_obj = Dron(dron["id"], dron["modelo"], dron["estado"], dron["envio_activo_id"])
+            dron_obj.actualizar_estado("Retornando")
+            dron["estado"] = dron_obj.estado
+            break
+
+    # 4. Actualizar los promedios geográficos en historial_eta (Municipio y Estado)
+    edo = envio_elegido["estado_destino"]
+    muni = envio_elegido["municipio_destino"]
+
+    if "historial_eta" not in data:
+        data["historial_eta"] = {"municipios": {}, "estados": {}}
+
+    # 4.1 Actualizar Historial del Municipio (según plantilla en baseD.json)
+    hist_municipios = data["historial_eta"].setdefault("municipios", {})
+    if muni not in hist_municipios:
+        hist_municipios[muni] = {
+            "estado": edo,
+            "tiempos_minutos": [],
+            "promedio_minutos": None
+        }
+    hist_municipios[muni]["tiempos_minutos"].append(tiempo_real_min)
+    lista_muni = hist_municipios[muni]["tiempos_minutos"]
+    hist_municipios[muni]["promedio_minutos"] = round(sum(lista_muni) / len(lista_muni), 2)
+
+    # 4.2 Actualizar Historial del Estado (según plantilla en baseD.json)
+    hist_estados = data["historial_eta"].setdefault("estados", {})
+    if edo not in hist_estados:
+        hist_estados[edo] = {
+            "tiempos_minutos": [],
+            "promedio_minutos": None
+        }
+    hist_estados[edo]["tiempos_minutos"].append(tiempo_real_min)
+    lista_edo = hist_estados[edo]["tiempos_minutos"]
+    hist_estados[edo]["promedio_minutos"] = round(sum(lista_edo) / len(lista_edo), 2)
+
+    # 5. Guardar todos los cambios en JSONBin.io
+    if actualizarBD(data):
+        print(f"\n{Color.VERDE}✅ ¡Paquete {envio_elegido['id']} recibido con éxito!{Color.RESET}")
+        print(f"   ⏱️  Tiempo real de vuelo registrado: {tiempo_real_min} minutos")
+        print(f"   📈 Nuevo promedio ETA en {muni}: {hist_municipios[muni]['promedio_minutos']} min")
+        print(f"   📈 Nuevo promedio ETA en {edo}: {hist_estados[edo]['promedio_minutos']} min")
+        print(f"   🚁 El dron {envio_elegido['dron_id']} ha cambiado su estado a: 'Retornando' (Retornando a base).")
+
+# ==============================================================================
+# FUNCIONES DEL PANEL DE OPERADOR (RESPONSABLE 4)
 # ==============================================================================
 def ver_flota():
     limpiar_pantalla()
@@ -203,17 +405,20 @@ def ver_flota():
         print(f"{d['id']:<10} | {d['modelo']:<18} | {color_estado}{estado:<15}{Color.RESET} | {envio_id:<12} | {tiempo_vuelo}")
     print("-" * 78)
 
-def calcular_eta_inicial(data, estado, municipio):
-    """Calcula el ETA en cascada: municipio -> estado -> valor por defecto."""
-    hist_muni = data.get("historial_eta", {}).get("municipios", {}).get(municipio, {})
-    if hist_muni and hist_muni.get("promedio_minutos"):
-        return hist_muni["promedio_minutos"]
-
-    hist_edo = data.get("historial_eta", {}).get("estados", {}).get(estado, {})
-    if hist_edo and hist_edo.get("promedio_minutos"):
-        return hist_edo["promedio_minutos"]
-
-    return data.get("config", {}).get("eta_defecto_minutos", 45)
+    # Opción rápida para que el operador reciba en base a los drones que están "Retornando"
+    drones_retornando = [d for d in data.get("drones", []) if d["estado"] == "Retornando"]
+    if drones_retornando:
+        print(f"\n{Color.AMARILLO}💡 Hay {len(drones_retornando)} dron(es) 'Retornando' a la base tras entregar su paquete.{Color.RESET}")
+        resp = input("¿Deseas confirmar su llegada a la base y ponerlos 'Disponible'? (S/N): ").strip().upper()
+        if resp == "S":
+            envios_dict = {e["id"]: e for e in data.get("envios", [])}
+            for d in drones_retornando:
+                if d.get("envio_activo_id") and d["envio_activo_id"] in envios_dict:
+                    envios_dict[d["envio_activo_id"]]["timestamp_retorno"] = time.time()
+                d["estado"] = "Disponible"
+                d["envio_activo_id"] = None
+            if actualizarBD(data):
+                print(f"{Color.VERDE}✅ Drones recibidos en base y listos para nuevos envíos.{Color.RESET}")
 
 def despachar_envio(operador_actual):
     limpiar_pantalla()
@@ -246,7 +451,9 @@ def despachar_envio(operador_actual):
 
     dron_asignado = drones_disponibles[0]
     nuevo_id_envio = f"ENV-{len(data.get('envios', [])) + 1:03d}"
-    eta_estimado = calcular_eta_inicial(data, cliente_seleccionado["estado"], cliente_seleccionado["municipio"])
+    eta_estimado, criterio_eta = obtener_eta_cascada(
+        data, cliente_seleccionado["estado"], cliente_seleccionado["municipio"]
+    )
 
     envio_obj = Envio(
         id_envio=nuevo_id_envio,
@@ -283,7 +490,7 @@ def despachar_envio(operador_actual):
         print(f"\n{Color.VERDE}✅ ¡Envío {nuevo_id_envio} despachado con éxito!{Color.RESET}")
         print(f"   🚁 Dron asignado: {dron_asignado['id']} ({dron_asignado['modelo']})")
         print(f"   📍 Destino: {cliente_seleccionado['municipio']}, {cliente_seleccionado['estado']} - {cliente_seleccionado['direccion']}")
-        print(f"   ⏱️  ETA estimado: {eta_estimado} minutos")
+        print(f"   ⏱️  ETA estimado: {eta_estimado} minutos ({criterio_eta})")
 
 def verificar_extraviados():
     limpiar_pantalla()
@@ -323,24 +530,60 @@ def ver_reportes_historicos():
     print(f"Total de envíos registrados: {len(envios)}")
 
     if envios:
-        print(f"\n{'ID ENVÍO':<10} | {'CLIENTE':<10} | {'DRON':<10} | {'DESTINO':<22} | {'ESTADO'}")
-        print("-" * 75)
+        print(f"\n{'ID ENVÍO':<10} | {'CLIENTE':<10} | {'DRON':<10} | {'DESTINO':<22} | {'ESTADO':<12} | {'TIEMPO REAL'}")
+        print("-" * 88)
         for e in envios:
             destino = f"{e['municipio_destino']} ({e['estado_destino']})"
-            print(f"{e['id']:<10} | {e['cliente_id']:<10} | {e['dron_id']:<10} | {destino:<22} | {e['estado_envio']}")
-        print("-" * 75)
+            t_real = f"{e['tiempo_real_vuelo_minutos']} min" if e.get("tiempo_real_vuelo_minutos") else "En curso"
+            print(f"{e['id']:<10} | {e['cliente_id']:<10} | {e['dron_id']:<10} | {destino:<22} | {e['estado_envio']:<12} | {t_real}")
+        print("-" * 88)
 
     print(f"\n{Color.CYAN}Promedios Históricos por Estado:{Color.RESET}")
     estados_hist = data.get("historial_eta", {}).get("estados", {})
     if not estados_hist:
-        print(" - Aún no hay entregas finalizadas para calcular promedios.")
+        print(" - Aún no hay entregas finalizadas para calcular promedios por Estado.")
     else:
         for edo, info in estados_hist.items():
-            print(f" - {edo}: {info.get('promedio_minutos', 'N/A')} min ({len(info.get('tiempos_minutos', []))} envíos)")
+            print(f" - {edo}: {info.get('promedio_minutos', 'N/A')} min ({len(info.get('tiempos_minutos', []))} entregas)")
+
+    print(f"\n{Color.CYAN}Promedios Históricos por Municipio:{Color.RESET}")
+    munis_hist = data.get("historial_eta", {}).get("municipios", {})
+    if not munis_hist:
+        print(" - Aún no hay entregas finalizadas para calcular promedios por Municipio.")
+    else:
+        for muni, info in munis_hist.items():
+            print(f" - {muni} ({info.get('estado')}): {info.get('promedio_minutos', 'N/A')} min ({len(info.get('tiempos_minutos', []))} entregas)")
 
 # ==============================================================================
 # MENÚS DE NAVEGACIÓN PRINCIPAL Y SUBMENÚS
 # ==============================================================================
+def menu_cliente(cliente_actual):
+    while True:
+        limpiar_pantalla()
+        print(f"{Color.CYAN}\n=============================================={Color.RESET}")
+        print(f"{Color.VERDE}👤 PANEL DEL CLIENTE: {cliente_actual.nombre} ({cliente_actual.id}){Color.RESET}")
+        print(f"{Color.CYAN}=============================================={Color.RESET}")
+        print("1. Ver estado de mis envíos")
+        print("2. Consultar tiempo estimado (ETA) hacia mi ubicación")
+        print("3. Confirmar 'Recibí mi paquete'")
+        print("4. Cerrar Sesión")
+
+        opcion = pedir_entero(f"\n{Color.AMARILLO}Selecciona una opción (1-4): {Color.RESET}", 1, 4)
+
+        if opcion == 1:
+            ver_mis_envios(cliente_actual)
+            pausar()
+        elif opcion == 2:
+            consultar_mi_eta(cliente_actual)
+            pausar()
+        elif opcion == 3:
+            recibir_paquete(cliente_actual)
+            pausar()
+        elif opcion == 4:
+            print(f"{Color.AMARILLO}Cerrando sesión de cliente...{Color.RESET}")
+            time.sleep(1)
+            break
+
 def menu_operador(operador_actual):
     while True:
         limpiar_pantalla()
@@ -386,8 +629,11 @@ def menu_principal():
         opcion = pedir_entero(f"\n{Color.AMARILLO}Selecciona una opción (1-4): {Color.RESET}", 1, 4)
 
         if opcion == 1:
-            print("\nMódulo de Cliente (Responsabilidad 5) en integración...")
-            pausar()
+            cliente_logueado = login_cliente()
+            if cliente_logueado:
+                menu_cliente(cliente_logueado)
+            else:
+                pausar()
         elif opcion == 2:
             operador_logueado = login_operador()
             if operador_logueado:
